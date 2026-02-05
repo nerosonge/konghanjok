@@ -443,7 +443,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               .subscribe();
 
             function tryMatch() {
-              supabaseClient.from('waiting').select('id, user_id, condition').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
+              supabaseClient.from('waiting').select('id, user_id, cond').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
                 if (r.error || !r.data || r.data.length === 0) return;
                 var opp = r.data[0];
                 if (opp.user_id === uid) return;
@@ -484,7 +484,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               });
             }
 
-            var channelOpp = supabaseClient.channel('waiting-opp-' + oppositeKey)
+            var channelOpp = supabaseClient.channel('waiting-opp-' + oppositeKey.replace(/[^a-zA-Z0-9_-]/g, '_'))
               .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'waiting', filter: 'queue_key=eq.' + oppositeKey }, tryMatch)
               .subscribe();
 
