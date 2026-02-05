@@ -526,9 +526,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     }
                     var roomId = roomRes.data.id;
                   supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', opp.id).is('room_id', null).select('id').then(function(up) {
-                    if (up.error || !up.data || up.data.length === 0) return;
-                    supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', myWaitingId).then(function() {
-                      leaveAndGo(roomId);
+                    if (!up.error && up.data && up.data.length > 0) {
+                      supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', myWaitingId).then(function() {
+                        leaveAndGo(roomId);
+                      });
+                      return;
+                    }
+                    supabaseClient.from('waiting').select('room_id').eq('id', myWaitingId).single().then(function(r) {
+                      if (!r.error && r.data && r.data.room_id) leaveAndGo(r.data.room_id);
                     });
                   });
                   });
