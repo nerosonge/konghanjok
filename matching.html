@@ -426,6 +426,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       function getFullUid() { return genUserId() + '-' + tabUidSuffix; }
 
+      function genRandomDisplayName() {
+        var adj = ['날아가는', '재빠른', '멋진', '용감한', '빛나는', '달리는', '웃는', '잠자는', '노래하는', '춤추는', '날쌘', '귀여운', '쿨한', '따뜻한', '시원한', '빠른', '느긋한', '영리한', '강한', '부드러운', '튼튼한', '행운의', '신비한', '화려한', '조용한'][Math.floor(Math.random() * 25)];
+        var animal = ['호랑이', '거북이', '토끼', '여우', '늑대', '판다', '코알라', '펭귄', '돌고래', '독수리', '사자', '코끼리', '기린', '치타', '올빼미', '고양이', '강아지', '다람쥐', '햄스터', '부엉이', '알파카', '라마', '캥거루', '코뿔소', '하이에나'][Math.floor(Math.random() * 25)];
+        var emoji = { 호랑이: '🐅', 거북이: '🐢', 토끼: '🐰', 여우: '🦊', 늑대: '🐺', 판다: '🐼', 코알라: '🐨', 펭귄: '🐧', 돌고래: '🐬', 독수리: '🦅', 사자: '🦁', 코끼리: '🐘', 기린: '🦒', 치타: '🐆', 올빼미: '🦉', 고양이: '🐱', 강아지: '🐕', 다람쥐: '🐿️', 햄스터: '🐹', 부엉이: '🦉', 알파카: '🦙', 라마: '🦙', 캥거루: '🦘', 코뿔소: '🦏', 하이에나: '🐕' };
+        var suffix = Math.random().toString(36).slice(2, 8);
+        var name = adj + ' ' + animal + ' ' + (emoji[animal] || '🎮') + ' #' + suffix;
+        return name;
+      }
+      var myDisplayName = genRandomDisplayName();
+
       if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
         try {
           var supabaseClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
@@ -436,17 +446,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           var oppositeKey = (payload.model + '_' + oppSide).replace(/\s+/g, '_');
 
           if (loadingText) loadingText.textContent = '실제 상대를 찾는 중...';
+          var nameLabel = matchingSide.querySelector('.loading-sub');
+          if (nameLabel) nameLabel.textContent = '당신: ' + myDisplayName;
 
-          supabaseClient.from('waiting').insert({
-            queue_key: queueKey,
-            user_id: uid,
-            condition: payload.condition
-          }).select('id').single().then(function(res) {
-            if (res.error) {
-              showRealMatchFail('error');
-              return;
-            }
-            var myWaitingId = res.data.id;
+          function doInsert(withDisplayName) {
+            var row = { queue_key: queueKey, user_id: uid, condition: payload.condition };
+            if (withDisplayName) row.display_name = myDisplayName;
+            supabaseClient.from('waiting').insert(row).select('id').single().then(function(res) {
+              if (res.error) {
+                if (withDisplayName && (res.error.message || '').indexOf('display_name') >= 0) {
+                  doInsert(false);
+                  return;
+                }
+                showRealMatchFail('error');
+                return;
+              }
+              afterInsert(res.data.id);
+            }).catch(function() { showRealMatchFail('error'); });
+          }
+          function afterInsert(myWaitingId) {
 
             function leaveAndGo(roomId) {
               supabaseClient.removeChannel(channelMine);
@@ -463,9 +481,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               })
               .subscribe(function(status, err) { if (err) console.warn('[Realtime] 내 대기열 구독', status, err); });
 
-            function tryMatch() {
-              supabaseClient.from('waiting').select('id, user_id, condition').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
-                if (r.error || !r.data || r.data.length === 0) return;
+            function tryMatch(withDisplayName) {
+              var cols = withDisplayName === false ? 'id, user_id, condition' : 'id, user_id, condition, display_name';
+              supabaseClient.from('waiting').select(cols).eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
+                if (r.error) {
+                  if (withDisplayName !== false && (r.error.message || '').indexOf('display_name') >= 0) { tryMatch(false); return; }
+                  return;
+                }
+                if (!r.data || r.data.length === 0) return;
                 var opp = r.data[0];
                 if (opp.user_id === uid) return;
 
@@ -480,23 +503,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 choices[playerLeft] = null;
                 choices[playerRight] = null;
 
-                supabaseClient.from('rooms').insert({
-                  player_left: playerLeft,
-                  player_right: playerRight,
-                  model: payload.model,
-                  condition_left: conditionLeft,
-                  condition_right: conditionRight,
-                  scores: scores,
-                  round: 1,
-                  choices: choices,
-                  phase: 'choose'
-                }).select('id').single().then(function(roomRes) {
-                  if (roomRes.error) return;
-                  var roomId = roomRes.data.id;
+                function doRoomInsert(withNames) {
+                  var roomRow = {
+                    player_left: playerLeft,
+                    player_right: playerRight,
+                    model: payload.model,
+                    condition_left: conditionLeft,
+                    condition_right: conditionRight,
+                    scores: scores,
+                    round: 1,
+                    choices: choices,
+                    phase: 'choose'
+                  };
+                  if (withNames) {
+                    roomRow.display_name_left = mySide === 'left' ? myDisplayName : (opp.display_name || '상대');
+                    roomRow.display_name_right = mySide === 'right' ? myDisplayName : (opp.display_name || '상대');
+                  }
+                  supabaseClient.from('rooms').insert(roomRow).select('id').single().then(function(roomRes) {
+                    if (roomRes.error) {
+                      if (withNames && (roomRes.error.message || '').indexOf('display_name') >= 0) { doRoomInsert(false); return; }
+                      return;
+                    }
+                    var roomId = roomRes.data.id;
                   supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', opp.id).is('room_id', null).select('id').then(function(up) {
-                    if (!up.error && up.data && up.data.length > 0) leaveAndGo(roomId);
+                    if (up.error || !up.data || up.data.length === 0) return;
+                    supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', myWaitingId).then(function() {
+                      leaveAndGo(roomId);
+                    });
                   });
-                });
+                  });
+                }
+                doRoomInsert(true);
               });
             }
 
@@ -518,9 +555,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               if (document.querySelector('.page').classList.contains('hidden')) return;
               showRealMatchFail();
             }, 60000);
-          }).catch(function() {
-            showRealMatchFail('error');
-          });
+          }
+          doInsert(true);
         } catch (e) {
           showRealMatchFail('error');
         }

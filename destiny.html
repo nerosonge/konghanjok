@@ -716,6 +716,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       object-fit: contain;
       filter: drop-shadow(0 8px 24px rgba(0,0,0,0.4));
     }
+    .winner-name {
+      font-size: clamp(1rem, 3vw, 1.2rem);
+      font-weight: 700;
+      margin: 0 0 12px;
+      opacity: 0.95;
+    }
     .win-message {
       font-size: clamp(1.1rem, 3.5vw, 1.35rem);
       font-weight: 700;
@@ -879,11 +885,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <div class="lose-overlay hidden" id="loseOverlay" aria-live="polite">
+    <p class="winner-name" id="winnerNameLose" aria-hidden="true"></p>
     <p class="lose-message">덕분에 상대방이 완전한 에어팟을 즐길 수 있어요 🎧<br>아, 좋은 승부였다 😇<br>😉또 다른 행운이 올거예요🍀</p>
     <a href="index.html" class="btn-to-main">메인으로 돌아가기</a>
   </div>
 
   <div class="win-overlay hidden" id="winOverlay" aria-live="polite">
+    <p class="winner-name" id="winnerNameWin" aria-hidden="true"></p>
     <div class="complete-airpods-wrap">
       <img src="assets/airpods-complete.png" alt="에어팟 완전체">
     </div>
@@ -932,8 +940,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           var oppSideText = isLeft ? '우측' : '좌측';
           var myConditionText = isLeft ? (conditionLabels[room.condition_left] || room.condition_left) : (conditionLabels[room.condition_right] || room.condition_right);
           var oppConditionText = isLeft ? (conditionLabels[room.condition_right] || room.condition_right) : (conditionLabels[room.condition_left] || room.condition_left);
-          document.getElementById('myUnitText').textContent = sideText;
-          document.getElementById('theirUnitText').textContent = oppSideText;
+          var myDisplayName = (isLeft ? room.display_name_left : room.display_name_right) || sideText;
+          var theirDisplayName = (isLeft ? room.display_name_right : room.display_name_left) || oppSideText;
+          document.getElementById('myUnitText').textContent = myDisplayName;
+          document.getElementById('theirUnitText').textContent = theirDisplayName;
           document.getElementById('myUnitInfo').textContent = (room.model || '') + ' · ' + sideText + ' · ' + myConditionText;
           document.getElementById('theirUnitInfo').textContent = (room.model || '') + ' · ' + oppSideText + ' · ' + oppConditionText;
 
@@ -991,9 +1001,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             var theirC = choices[isLeft ? playerRight : playerLeft];
             if (myC && theirC) {
               handMineEmoji.textContent = RPS_EMOJI[myC];
-              handMineName.textContent = '나 · ' + RPS[myC];
+              handMineName.textContent = myDisplayName + ' · ' + RPS[myC];
               handTheirsEmoji.textContent = RPS_EMOJI[theirC];
-              handTheirsName.textContent = '상대 · ' + RPS[theirC];
+              handTheirsName.textContent = theirDisplayName + ' · ' + RPS[theirC];
               capsuleWrap.classList.add('hidden');
               revealArea.classList.remove('hidden');
               revealArea.classList.add('visible');
@@ -1033,6 +1043,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (window._pollRoom) { clearInterval(window._pollRoom); window._pollRoom = null; }
             var winner = room.winner;
             var iWon = winner === myUid;
+            var winnerDisplayName = (winner === playerLeft ? (room.display_name_left || '좌측') : (room.display_name_right || '우측'));
+            var winEl = document.getElementById('winnerNameWin');
+            var loseEl = document.getElementById('winnerNameLose');
+            if (winEl) winEl.textContent = winnerDisplayName + ' 의 승리!';
+            if (loseEl) loseEl.textContent = winnerDisplayName + ' 의 승리!';
             var loseOverlay = document.getElementById('loseOverlay');
             var winOverlay = document.getElementById('winOverlay');
             if (iWon) {

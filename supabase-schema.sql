@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS waiting (
   user_id TEXT NOT NULL,
   "condition" TEXT,
   room_id UUID,
+  display_name TEXT,
   joined_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -17,6 +18,8 @@ CREATE TABLE IF NOT EXISTS rooms (
   model TEXT,
   condition_left TEXT,
   condition_right TEXT,
+  display_name_left TEXT,
+  display_name_right TEXT,
   scores JSONB DEFAULT '{}',
   round INT DEFAULT 1,
   choices JSONB DEFAULT '{}',

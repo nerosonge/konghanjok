@@ -36,11 +36,21 @@ ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
 
 별도 설정 없이 그대로 사용하면 됩니다.
 
+## 4. (선택) 랜덤 이름 표시용 컬럼
+
+이미 `waiting`, `rooms` 테이블이 있다면 SQL Editor에서 아래만 실행하세요.
+
+```sql
+ALTER TABLE waiting ADD COLUMN display_name TEXT;
+ALTER TABLE rooms ADD COLUMN display_name_left TEXT, ADD COLUMN display_name_right TEXT;
+```
+
+(이미 컬럼이 있으면 오류 나도 무시해도 됩니다.)
+
 ---
 
-## 4. 실시간 매칭 테스트
+## 5. 실시간 매칭 테스트
 
 - **실시간 대전하기** → **실시간 상대 찾기** 하면, 같은 모델·반대쪽 대기 중인 유저가 있을 때 실시간으로 매칭됩니다.
-- **테스트는 반드시 서로 다른 브라우저 또는 기기 2대**로 하세요.  
-  같은 브라우저에서 탭 2개로 하면 `user_id`가 같아서 “나 vs 나”로 인식되어 매칭에서 제외됩니다.
+- **같은 브라우저에서 탭 2개**로도 테스트 가능합니다 (탭마다 다른 이름·uid 사용).  
 - 브라우저 개발자도구(F12) → Console에서 `[Realtime]` 로그로 구독 상태를 확인할 수 있습니다.
