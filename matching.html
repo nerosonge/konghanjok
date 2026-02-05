@@ -327,9 +327,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 
   <div class="no-match-msg hidden" id="realMatchFailMsg">
-    <p>실제 상대를 찾지 못했어요.<br>다시 시도하거나 AI와 연습해 보세요.</p>
+    <p id="realMatchFailText">실제 상대를 찾지 못했어요.<br>다시 시도하거나 AI와 연습해 보세요.</p>
     <a href="match.html" class="btn-back" id="retryMatchBtn">다시 매칭</a>
-    <a href="#" class="btn-back" id="aiPracticeBtn" style="margin-top: 12px;">AI와 연습하기</a>
+    <a href="#" class="btn-back" id="aiPracticeBtn" style="margin-top: 12px;">AI와 가위바위보 연습하기</a>
   </div>
 
   <script src="supabase-config.js"></script>
@@ -382,14 +382,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         }).toString();
       }
 
-      function showRealMatchFail() {
+      var matchPageStart = Date.now();
+      var MIN_WAIT_MS = 5000;
+
+      function showRealMatchFail(reason) {
         var failEl = document.getElementById('realMatchFailMsg');
+        var failText = document.getElementById('realMatchFailText');
         var aiBtn = document.getElementById('aiPracticeBtn');
-        if (failEl && aiBtn) {
-          aiBtn.href = getAiDestinyUrl();
+        if (!failEl || !aiBtn) return;
+        if (reason === 'error') {
+          if (failText) failText.innerHTML = '매칭 서버에 연결할 수 없어요.<br>Supabase 설정과 Realtime(Publication)을 확인해 주세요.';
+        } else {
+          if (failText) failText.innerHTML = '실제 상대를 찾지 못했어요.<br>다시 시도하거나 AI와 연습해 보세요.';
+        }
+        aiBtn.href = getAiDestinyUrl();
+        function show() {
           document.querySelector('.page').classList.add('hidden');
           failEl.classList.remove('hidden');
         }
+        var elapsed = Date.now() - matchPageStart;
+        var waitLeft = Math.max(0, MIN_WAIT_MS - elapsed);
+        if (waitLeft <= 0) show(); else setTimeout(show, waitLeft);
       }
 
       function goDestinyWithRoom(roomId) {
@@ -426,7 +439,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             cond: payload.condition
           }).select('id').single().then(function(res) {
             if (res.error) {
-              showRealMatchFail();
+              showRealMatchFail('error');
               return;
             }
             var myWaitingId = res.data.id;
@@ -497,13 +510,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               showRealMatchFail();
             }, 60000);
           }).catch(function() {
-            showRealMatchFail();
+            showRealMatchFail('error');
           });
         } catch (e) {
-          showRealMatchFail();
+          showRealMatchFail('error');
         }
       } else {
-        showRealMatchFail();
+        showRealMatchFail('error');
       }
     })();
   </script>
