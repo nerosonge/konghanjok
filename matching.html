@@ -444,14 +444,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             }
             var myWaitingId = res.data.id;
 
+            function leaveAndGo(roomId) {
+              supabaseClient.removeChannel(channelMine);
+              supabaseClient.removeChannel(channelOpp);
+              clearInterval(pollMatch);
+              clearInterval(pollMyRoom);
+              supabaseClient.from('waiting').delete().eq('id', myWaitingId).then(function() {});
+              goDestinyWithRoom(roomId);
+            }
+
             var channelMine = supabaseClient.channel('waiting-mine-' + myWaitingId)
               .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'waiting', filter: 'id=eq.' + myWaitingId }, function(p) {
-                if (p.new && p.new.room_id) {
-                  supabaseClient.removeChannel(channelMine);
-                  supabaseClient.removeChannel(channelOpp);
-                  supabaseClient.from('waiting').delete().eq('id', myWaitingId).then(function() {});
-                  goDestinyWithRoom(p.new.room_id);
-                }
+                if (p.new && p.new.room_id) leaveAndGo(p.new.room_id);
               })
               .subscribe(function(status, err) { if (err) console.warn('[Realtime] 내 대기열 구독', status, err); });
 
@@ -486,12 +490,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   if (roomRes.error) return;
                   var roomId = roomRes.data.id;
                   supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', opp.id).is('room_id', null).select('id').then(function(up) {
-                    if (!up.error && up.data && up.data.length > 0) {
-                      supabaseClient.removeChannel(channelMine);
-                      supabaseClient.removeChannel(channelOpp);
-                      supabaseClient.from('waiting').delete().eq('id', myWaitingId).then(function() {});
-                      goDestinyWithRoom(roomId);
-                    }
+                    if (!up.error && up.data && up.data.length > 0) leaveAndGo(roomId);
                   });
                 });
               });
@@ -502,9 +501,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               .subscribe(function(status, err) { if (err) console.warn('[Realtime] 반대 대기열 구독', status, err); });
 
             tryMatch();
-            var poll = setInterval(tryMatch, 2000);
+            var pollMatch = setInterval(tryMatch, 2000);
+            var pollMyRoom = setInterval(function() {
+              supabaseClient.from('waiting').select('room_id').eq('id', myWaitingId).single().then(function(r) {
+                if (!r.error && r.data && r.data.room_id) leaveAndGo(r.data.room_id);
+              });
+            }, 1500);
             setTimeout(function() {
-              clearInterval(poll);
+              clearInterval(pollMatch);
+              clearInterval(pollMyRoom);
               if (!document.getElementById('realMatchFailMsg').classList.contains('hidden')) return;
               if (document.querySelector('.page').classList.contains('hidden')) return;
               showRealMatchFail();
