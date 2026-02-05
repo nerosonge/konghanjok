@@ -815,7 +815,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="page" id="page">
     <a class="back-link" href="match.html">← 매칭으로</a>
 
-    <h1 class="title-samsepan" aria-hidden="true">삼세판!</h1>
+    <h1 class="title-samsepan" aria-hidden="true">한판!</h1>
 
     <div class="score-board" aria-live="polite">
       <div class="score-row">
@@ -837,7 +837,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
 
-    <p class="round-label" id="roundLabel">1/3 · 타임 캡슐 가위바위보</p>
+    <p class="round-label" id="roundLabel">단판 · 타임 캡슐 가위바위보</p>
 
     <p class="capsule-hint" id="capsuleHint">캡슐에 담을 패를 선택하세요.<br>상대는 캡슐을 열기 전에 자신의 패를 선택합니다.</p>
 
@@ -944,7 +944,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             document.getElementById('theirUnitInfo').textContent = '—';
             document.getElementById('myScore').textContent = '0';
             document.getElementById('theirScore').textContent = '0';
-            document.getElementById('roundLabel').textContent = '1/3 · 타임 캡슐 가위바위보';
+            document.getElementById('roundLabel').textContent = '단판 · 타임 캡슐 가위바위보';
             var ch = document.getElementById('capsuleHint');
             if (ch) { ch.style.display = 'block'; ch.textContent = '상대를 기다리는 중...'; }
             var cw = document.getElementById('capsuleWrap');
@@ -973,8 +973,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           document.getElementById('myScore').textContent = scores[myUid] || 0;
           document.getElementById('theirScore').textContent = scores[isLeft ? playerRight : playerLeft] || 0;
 
-          var round = room.round || 1;
-          document.getElementById('roundLabel').textContent = round + '/3 · 타임 캡슐 가위바위보';
+          document.getElementById('roundLabel').textContent = '단판 · 타임 캡슐 가위바위보';
 
           var choices = room.choices || {};
           var rpsButtons = document.querySelectorAll('.rps-btn');
@@ -1043,35 +1042,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               if (!window._revealDone[roomIdParam]) {
                 window._revealDone[roomIdParam] = true;
                 setTimeout(function() {
-                  var scoresNow = room.scores || {};
-                  var leftScore = scoresNow[playerLeft] || 0;
-                  var rightScore = scoresNow[playerRight] || 0;
-                  var nextChoices = {};
-                  nextChoices[playerLeft] = null;
-                  nextChoices[playerRight] = null;
-                  if (leftScore >= 2 || rightScore >= 2) {
-                    supabaseClient.from('rooms').update({ phase: 'gameover', winner: leftScore >= 2 ? playerLeft : playerRight }).eq('id', roomIdParam).then(function() {});
-                  } else {
-                    supabaseClient.from('rooms').update({ phase: 'next', choices: nextChoices, result: null, round: (room.round || 1) + 1 }).eq('id', roomIdParam).then(function() {});
+                  var res = room.result;
+                  if (res === 'draw') {
+                    window._revealDone[roomIdParam] = false;
+                    var nextChoices = {};
+                    nextChoices[playerLeft] = null;
+                    nextChoices[playerRight] = null;
+                    supabaseClient.from('rooms').update({ phase: 'choose', choices: nextChoices, result: null }).eq('id', roomIdParam).then(function() {});
+                    return;
                   }
+                  var winnerUid = res === 'left' ? playerLeft : playerRight;
+                  supabaseClient.from('rooms').update({ phase: 'gameover', winner: winnerUid }).eq('id', roomIdParam).then(function() {});
                 }, 2500);
               }
             }
-          } else if (phase === 'next') {
-            if (window._revealDone) window._revealDone[roomIdParam] = false;
-            supabaseClient.from('rooms').update({ phase: 'choose' }).eq('id', roomIdParam).then(function() {});
           } else if (phase === 'gameover') {
             if (window._pollRoom) { clearInterval(window._pollRoom); window._pollRoom = null; }
             var winner = room.winner;
-            var iWon = winner === myUid;
-            var winnerDisplayName = (winner === playerLeft ? (room.display_name_left || '좌측') : (room.display_name_right || '우측'));
             var winEl = document.getElementById('winnerNameWin');
             var loseEl = document.getElementById('winnerNameLose');
-            if (winEl) winEl.textContent = winnerDisplayName + ' 의 승리!';
-            if (loseEl) loseEl.textContent = winnerDisplayName + ' 의 승리!';
+            var winnerDisplayName = winner === null ? '무승부' : (winner === playerLeft ? (room.display_name_left || '좌측') : (room.display_name_right || '우측'));
+            if (winEl) winEl.textContent = winner === null ? '무승부!' : winnerDisplayName + ' 의 승리!';
+            if (loseEl) loseEl.textContent = winner === null ? '무승부!' : winnerDisplayName + ' 의 승리!';
             var loseOverlay = document.getElementById('loseOverlay');
             var winOverlay = document.getElementById('winOverlay');
-            if (iWon) {
+            if (winner === null) {
+              loseOverlay.classList.remove('hidden');
+              loseOverlay.classList.add('visible');
+            } else if (winner === myUid) {
               winOverlay.classList.remove('hidden');
               winOverlay.classList.add('visible');
               var ce = document.getElementById('celebrationOverlay');
@@ -1325,44 +1323,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             showResultPopup('이겼습니다!', 'win');
             matchMyWins += 1;
             updateScore();
-            if (matchMyWins >= 2) {
-              setTimeout(() => {
-                showWinAnimation();
-              }, 2200);
-              return;
-            }
-            showCelebration();
-            nextText.textContent = '1승! 한 판 더 이기면 완전체의 주인.';
-            nextText.style.fontWeight = '600';
-            if (isMatchPoint()) {
-              setTimeout(() => showMatchPointOverlay(), 2000);
-              setTimeout(() => { capsuleHint.style.display = ''; resetPhase(); }, 5600);
-            } else {
-              setTimeout(() => { capsuleHint.style.display = ''; resetPhase(); }, 2200);
-            }
+            setTimeout(() => {
+              showWinAnimation();
+            }, 2200);
             return;
           }
           if (result === 'miss') {
             showResultPopup('패배!!', 'miss');
             matchTheirWins += 1;
             updateScore();
-            if (matchTheirWins >= 2) {
-              resultText.textContent = '';
-              setTimeout(() => {
-                showLoseAnimation();
-              }, 2200);
-              return;
-            }
-            const missMessages = ['🙃 에어팟이 5m 멀어졌습니다', '😰 다음 판이 마지막이에요... 한 수만 더 지면 끝이에요!'];
-            resultText.textContent = missMessages[Math.floor(Math.random() * missMessages.length)];
-            nextText.textContent = matchTheirWins === 1 && matchMyWins === 0 ? '0:1. 한 판 더 이기면 동점.' : '1:1. 다음 판이 최종전!';
-            nextText.style.fontWeight = '600';
-            if (isMatchPoint()) {
-              setTimeout(() => showMatchPointOverlay(), 2000);
-              setTimeout(() => { capsuleHint.style.display = ''; resetPhase(); }, 5600);
-            } else {
-              setTimeout(() => { capsuleHint.style.display = ''; resetPhase(); }, 2200);
-            }
+            resultText.textContent = '';
+            setTimeout(() => {
+              showLoseAnimation();
+            }, 2200);
             return;
           }
           showResultPopup('무승부', 'draw');
