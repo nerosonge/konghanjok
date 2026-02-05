@@ -1,9 +1,11 @@
 ---
-description: 코드 변경 후 GitHub에 자동 커밋·푸시
+description: 코드 변경 후 nerosonge/konghanjok에 자동 커밋·푸시
 alwaysApply: true
 ---
 
 # 자동 커밋·푸시
+
+**대상 저장소**: [nerosonge/konghanjok](https://github.com/nerosonge/konghanjok)
 
 이 프로젝트에서 **코드/파일을 수정한 뒤**에는 반드시 아래 순서로 실행한다.
 

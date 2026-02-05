@@ -1,0 +1,11 @@
+---
+description: 수정 작업 시 워크스페이스 기본 동작
+alwaysApply: true
+---
+
+# 워크스페이스 수정 규칙
+
+- **수정 대상**: 사용자가 수정을 요청하면 워크스페이스 루트(`콩한쪽`)의 파일을 바로 수정한다.
+- **즉시 반영**: 명령을 받으면 지연 없이 해당 파일을 편집·수정한다.
+- **실제 작업 위치**: `index.html`, `matching.html`, `destiny.html` 등 — 루트의 파일들 (참고용 `CONGHAN-original/` 폴더 제외)
+- 수정 완료 후 `.cursor/rules/auto-commit-push.mdc` 규칙에 따라 nerosonge/konghanjok에 자동 커밋·푸시한다.
