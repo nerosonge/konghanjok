@@ -441,128 +441,115 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           var supabaseClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
           var uid = getFullUid();
           var mySide = payload.mySide;
-          var oppSide = mySide === 'left' ? 'right' : 'left';
-          var queueKey = (payload.model + '_' + mySide).replace(/\s+/g, '_');
-          var oppositeKey = (payload.model + '_' + oppSide).replace(/\s+/g, '_');
+          var model = payload.model;
+          var cond = payload.condition || 'A';
 
-          if (loadingText) loadingText.textContent = '실제 상대를 찾는 중...';
+          if (loadingText) loadingText.textContent = '상대를 찾는 중...';
           var nameLabel = matchingSide.querySelector('.loading-sub');
           if (nameLabel) nameLabel.textContent = '당신: ' + myDisplayName;
 
-          function doInsert(withDisplayName) {
-            var row = { queue_key: queueKey, user_id: uid, condition: payload.condition };
-            if (withDisplayName) row.display_name = myDisplayName;
-            supabaseClient.from('waiting').insert(row).select('id').single().then(function(res) {
+          function goRoom(roomId) {
+            sessionStorage.removeItem(key);
+            location.href = 'destiny.html?roomId=' + encodeURIComponent(roomId) + '&uid=' + encodeURIComponent(uid);
+          }
+
+          function tryJoinExisting() {
+            var q = supabaseClient.from('rooms').select('id, player_left, player_right').eq('model', model).eq('phase', 'waiting').limit(1);
+            if (mySide === 'left') {
+              q = q.is('player_left', null).not('player_right', 'is', null).eq('condition_right', cond);
+            } else {
+              q = q.is('player_right', null).not('player_left', 'is', null).eq('condition_left', cond);
+            }
+            q.then(function(r) {
+              if (r.error || !r.data || r.data.length === 0) {
+                createMyRoom();
+                return;
+              }
+              var room = r.data[0];
+              var roomId = room.id;
+              var choices = {};
+              if (mySide === 'left') {
+                choices[room.player_right] = null;
+                choices[uid] = null;
+                supabaseClient.from('rooms').update({
+                  player_left: uid,
+                  condition_left: cond,
+                  display_name_left: myDisplayName,
+                  phase: 'choose',
+                  choices: choices
+                }).eq('id', roomId).then(function(up) {
+                  if (!up.error) goRoom(roomId);
+                  else createMyRoom();
+                });
+              } else {
+                choices[room.player_left] = null;
+                choices[uid] = null;
+                supabaseClient.from('rooms').update({
+                  player_right: uid,
+                  condition_right: cond,
+                  display_name_right: myDisplayName,
+                  phase: 'choose',
+                  choices: choices
+                }).eq('id', roomId).then(function(up) {
+                  if (!up.error) goRoom(roomId);
+                  else createMyRoom();
+                });
+              }
+            });
+          }
+
+          function createMyRoom() {
+            var roomRow = {
+              model: model,
+              scores: {},
+              round: 1,
+              phase: 'waiting'
+            };
+            var choices = {};
+            choices[uid] = null;
+            roomRow.choices = choices;
+            if (mySide === 'left') {
+              roomRow.player_left = uid;
+              roomRow.player_right = null;
+              roomRow.condition_left = cond;
+              roomRow.condition_right = null;
+              roomRow.display_name_left = myDisplayName;
+              roomRow.display_name_right = null;
+            } else {
+              roomRow.player_left = null;
+              roomRow.player_right = uid;
+              roomRow.condition_left = null;
+              roomRow.condition_right = cond;
+              roomRow.display_name_left = null;
+              roomRow.display_name_right = myDisplayName;
+            }
+            supabaseClient.from('rooms').insert(roomRow).select('id').single().then(function(res) {
               if (res.error) {
-                if (withDisplayName && (res.error.message || '').indexOf('display_name') >= 0) {
-                  doInsert(false);
-                  return;
-                }
                 showRealMatchFail('error');
                 return;
               }
-              afterInsert(res.data.id);
+              var roomId = res.data.id;
+              var pollRoom = setInterval(function() {
+                supabaseClient.from('rooms').select('player_left, player_right, phase').eq('id', roomId).single().then(function(r) {
+                  if (r.error || !r.data) return;
+                  var d = r.data;
+                  if (d.phase === 'choose' && d.player_left && d.player_right) {
+                    clearInterval(pollRoom);
+                    clearTimeout(failTimer);
+                    goRoom(roomId);
+                  }
+                });
+              }, 1200);
+              var failTimer = setTimeout(function() {
+                clearInterval(pollRoom);
+                if (!document.getElementById('realMatchFailMsg').classList.contains('hidden')) return;
+                if (document.querySelector('.page').classList.contains('hidden')) return;
+                showRealMatchFail();
+              }, 60000);
             }).catch(function() { showRealMatchFail('error'); });
           }
-          function afterInsert(myWaitingId) {
 
-            function leaveAndGo(roomId) {
-              supabaseClient.removeChannel(channelMine);
-              supabaseClient.removeChannel(channelOpp);
-              clearInterval(pollMatch);
-              clearInterval(pollMyRoom);
-              supabaseClient.from('waiting').delete().eq('id', myWaitingId).then(function() {});
-              goDestinyWithRoom(roomId);
-            }
-
-            var channelMine = supabaseClient.channel('waiting-mine-' + myWaitingId)
-              .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'waiting', filter: 'id=eq.' + myWaitingId }, function(p) {
-                if (p.new && p.new.room_id) leaveAndGo(p.new.room_id);
-              })
-              .subscribe(function(status, err) { if (err) console.warn('[Realtime] 내 대기열 구독', status, err); });
-
-            function tryMatch(withDisplayName) {
-              var cols = withDisplayName === false ? 'id, user_id, condition' : 'id, user_id, condition, display_name';
-              supabaseClient.from('waiting').select(cols).eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
-                if (r.error) {
-                  if (withDisplayName !== false && (r.error.message || '').indexOf('display_name') >= 0) { tryMatch(false); return; }
-                  return;
-                }
-                if (!r.data || r.data.length === 0) return;
-                var opp = r.data[0];
-                if (opp.user_id === uid) return;
-                if (uid > opp.user_id) return;
-
-                var playerLeft = mySide === 'left' ? uid : opp.user_id;
-                var playerRight = mySide === 'right' ? uid : opp.user_id;
-                var conditionLeft = mySide === 'left' ? payload.condition : (opp.condition || 'A');
-                var conditionRight = mySide === 'right' ? payload.condition : (opp.condition || 'A');
-                var scores = {};
-                scores[playerLeft] = 0;
-                scores[playerRight] = 0;
-                var choices = {};
-                choices[playerLeft] = null;
-                choices[playerRight] = null;
-
-                function doRoomInsert(withNames) {
-                  var roomRow = {
-                    player_left: playerLeft,
-                    player_right: playerRight,
-                    model: payload.model,
-                    condition_left: conditionLeft,
-                    condition_right: conditionRight,
-                    scores: scores,
-                    round: 1,
-                    choices: choices,
-                    phase: 'choose'
-                  };
-                  if (withNames) {
-                    roomRow.display_name_left = mySide === 'left' ? myDisplayName : (opp.display_name || '상대');
-                    roomRow.display_name_right = mySide === 'right' ? myDisplayName : (opp.display_name || '상대');
-                  }
-                  supabaseClient.from('rooms').insert(roomRow).select('id').single().then(function(roomRes) {
-                    if (roomRes.error) {
-                      if (withNames && (roomRes.error.message || '').indexOf('display_name') >= 0) { doRoomInsert(false); return; }
-                      return;
-                    }
-                    var roomId = roomRes.data.id;
-                  supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', opp.id).is('room_id', null).select('id').then(function(up) {
-                    if (!up.error && up.data && up.data.length > 0) {
-                      supabaseClient.from('waiting').update({ room_id: roomId }).eq('id', myWaitingId).then(function() {
-                        leaveAndGo(roomId);
-                      });
-                      return;
-                    }
-                    supabaseClient.from('waiting').select('room_id').eq('id', myWaitingId).single().then(function(r) {
-                      if (!r.error && r.data && r.data.room_id) leaveAndGo(r.data.room_id);
-                    });
-                  });
-                  });
-                }
-                doRoomInsert(true);
-              });
-            }
-
-            var channelOpp = supabaseClient.channel('waiting-opp-' + oppositeKey.replace(/[^a-zA-Z0-9_-]/g, '_'))
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'waiting', filter: 'queue_key=eq."' + oppositeKey + '"' }, tryMatch)
-              .subscribe(function(status, err) { if (err) console.warn('[Realtime] 반대 대기열 구독', status, err); });
-
-            tryMatch();
-            var pollMatch = setInterval(tryMatch, 2000);
-            var pollMyRoom = setInterval(function() {
-              supabaseClient.from('waiting').select('room_id').eq('id', myWaitingId).single().then(function(r) {
-                if (!r.error && r.data && r.data.room_id) leaveAndGo(r.data.room_id);
-              });
-            }, 1500);
-            setTimeout(function() {
-              clearInterval(pollMatch);
-              clearInterval(pollMyRoom);
-              if (!document.getElementById('realMatchFailMsg').classList.contains('hidden')) return;
-              if (document.querySelector('.page').classList.contains('hidden')) return;
-              showRealMatchFail();
-            }, 60000);
-          }
-          doInsert(true);
+          tryJoinExisting();
         } catch (e) {
           showRealMatchFail('error');
         }

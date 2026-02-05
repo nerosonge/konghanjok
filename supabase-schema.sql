@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS waiting (
   joined_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 게임 방
+-- 게임 방 (한쪽만 있으면 phase=waiting, 상대 입장 시 phase=choose)
 CREATE TABLE IF NOT EXISTS rooms (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  player_left TEXT NOT NULL,
-  player_right TEXT NOT NULL,
+  player_left TEXT,
+  player_right TEXT,
   model TEXT,
   condition_left TEXT,
   condition_right TEXT,
@@ -23,11 +23,15 @@ CREATE TABLE IF NOT EXISTS rooms (
   scores JSONB DEFAULT '{}',
   round INT DEFAULT 1,
   choices JSONB DEFAULT '{}',
-  phase TEXT DEFAULT 'choose',
+  phase TEXT DEFAULT 'waiting',
   result TEXT,
   winner TEXT,
   created_at TIMESTAMPTZ DEFAULT now()
 );
+
+-- 기존 테이블에 nullable 적용하려면 SQL Editor에서:
+-- ALTER TABLE rooms ALTER COLUMN player_left DROP NOT NULL;
+-- ALTER TABLE rooms ALTER COLUMN player_right DROP NOT NULL;
 
 -- Realtime 구독 허용
 ALTER PUBLICATION supabase_realtime ADD TABLE waiting;
