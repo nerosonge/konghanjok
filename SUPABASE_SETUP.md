@@ -11,11 +11,14 @@
 
 `ALTER PUBLICATION supabase_realtime ADD TABLE ...` 에서 이미 추가된 테이블이라 오류가 나면, 그 줄만 지우고 다시 실행하거나 무시해도 됩니다.
 
-## 2. Realtime 켜기
+## 2. Realtime 켜기 (Publications에 있음)
 
-1. 왼쪽 **Database** → **Replication**
-2. **supabase_realtime** 에서 `waiting`, `rooms` 테이블이 포함돼 있는지 확인
-3. 없으면 **SQL Editor**에서 아래만 실행:
+**Replication** 메뉴가 아니라 **Publications** 메뉴입니다.
+
+1. 왼쪽 **Database** → **Publications** 클릭  
+   (또는 [Publications 설정](https://supabase.com/dashboard/project/qsdewkgxieqqpvvfaqel/database/publications) 직접 이동)
+2. **supabase_realtime** publication 선택
+3. `waiting`, `rooms` 테이블이 목록에 있으면 체크(토글 ON), 없으면 **SQL Editor**에서 아래 실행:
 
 ```sql
 ALTER PUBLICATION supabase_realtime ADD TABLE waiting;
