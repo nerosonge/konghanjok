@@ -918,7 +918,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (useMultiplayer) {
       try {
         var supabaseClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-        var uid = getUserId();
+        var uid = urlParams.get('uid') || getUserId();
 
         function applyRoom(room) {
           if (!room) return;
@@ -1030,6 +1030,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (window._revealDone) window._revealDone[roomIdParam] = false;
             supabaseClient.from('rooms').update({ phase: 'choose' }).eq('id', roomIdParam).then(function() {});
           } else if (phase === 'gameover') {
+            if (window._pollRoom) { clearInterval(window._pollRoom); window._pollRoom = null; }
             var winner = room.winner;
             var iWon = winner === myUid;
             var loseOverlay = document.getElementById('loseOverlay');
@@ -1047,9 +1048,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           }
         }
 
-        supabaseClient.from('rooms').select('*').eq('id', roomIdParam).single().then(function(r) {
-          if (!r.error && r.data) applyRoom(r.data);
-        });
+        function fetchRoom() {
+          supabaseClient.from('rooms').select('*').eq('id', roomIdParam).single().then(function(r) {
+            if (!r.error && r.data) applyRoom(r.data);
+          });
+        }
+        fetchRoom();
+        window._pollRoom = setInterval(fetchRoom, 1200);
 
         supabaseClient.channel('room-' + roomIdParam)
           .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: 'id=eq.' + roomIdParam }, function(p) {

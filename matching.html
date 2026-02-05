@@ -405,9 +405,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         if (waitLeft <= 0) show(); else setTimeout(show, waitLeft);
       }
 
+      var tabUidSuffix = Date.now() + '-' + Math.random().toString(36).slice(2, 11);
+
       function goDestinyWithRoom(roomId) {
         sessionStorage.removeItem(key);
-        location.href = 'destiny.html?roomId=' + encodeURIComponent(roomId);
+        location.href = 'destiny.html?roomId=' + encodeURIComponent(roomId) + '&uid=' + encodeURIComponent(getFullUid());
       }
 
       function genUserId() {
@@ -422,10 +424,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         return id;
       }
 
+      function getFullUid() { return genUserId() + '-' + tabUidSuffix; }
+
       if (window.SUPABASE_URL && window.SUPABASE_ANON_KEY && typeof supabase !== 'undefined') {
         try {
           var supabaseClient = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY);
-          var uid = genUserId();
+          var uid = getFullUid();
           var mySide = payload.mySide;
           var oppSide = mySide === 'left' ? 'right' : 'left';
           var queueKey = (payload.model + '_' + mySide).replace(/\s+/g, '_');
