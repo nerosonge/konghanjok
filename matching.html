@@ -436,7 +436,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           supabaseClient.from('waiting').insert({
             queue_key: queueKey,
             user_id: uid,
-            cond: payload.condition
+            condition: payload.condition
           }).select('id').single().then(function(res) {
             if (res.error) {
               showRealMatchFail('error');
@@ -456,15 +456,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               .subscribe();
 
             function tryMatch() {
-              supabaseClient.from('waiting').select('id, user_id, cond').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
+              supabaseClient.from('waiting').select('id, user_id, condition').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
                 if (r.error || !r.data || r.data.length === 0) return;
                 var opp = r.data[0];
                 if (opp.user_id === uid) return;
 
                 var playerLeft = mySide === 'left' ? uid : opp.user_id;
                 var playerRight = mySide === 'right' ? uid : opp.user_id;
-                var conditionLeft = mySide === 'left' ? payload.condition : (opp.cond || 'A');
-                var conditionRight = mySide === 'right' ? payload.condition : (opp.cond || 'A');
+                var conditionLeft = mySide === 'left' ? payload.condition : (opp.condition || 'A');
+                var conditionRight = mySide === 'right' ? payload.condition : (opp.condition || 'A');
                 var scores = {};
                 scores[playerLeft] = 0;
                 scores[playerRight] = 0;

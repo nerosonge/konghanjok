@@ -1,10 +1,10 @@
 -- Supabase SQL Editor에서 실행하세요.
--- 대기열 (모델_방향별 대기 유저)
+-- 대기열 (모델_방향별 대기 유저) — 컬럼명은 condition (Supabase REST와 맞춤)
 CREATE TABLE IF NOT EXISTS waiting (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   queue_key TEXT NOT NULL,
   user_id TEXT NOT NULL,
-  cond TEXT,
+  "condition" TEXT,
   room_id UUID,
   joined_at TIMESTAMPTZ DEFAULT now()
 );
