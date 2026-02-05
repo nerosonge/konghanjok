@@ -491,6 +491,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 if (!r.data || r.data.length === 0) return;
                 var opp = r.data[0];
                 if (opp.user_id === uid) return;
+                if (uid > opp.user_id) return;
 
                 var playerLeft = mySide === 'left' ? uid : opp.user_id;
                 var playerRight = mySide === 'right' ? uid : opp.user_id;
