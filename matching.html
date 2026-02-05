@@ -10,7 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI 매칭 중 | 콩한쪽</title>
+  <title>실시간 매칭 중 | 콩한쪽</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -326,6 +326,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a href="match.html" class="btn-back">매칭 화면으로 돌아가기</a>
   </div>
 
+  <div class="no-match-msg hidden" id="realMatchFailMsg">
+    <p>실제 상대를 찾지 못했어요.<br>다시 시도하거나 AI와 연습해 보세요.</p>
+    <a href="match.html" class="btn-back" id="retryMatchBtn">다시 매칭</a>
+    <a href="#" class="btn-back" id="aiPracticeBtn" style="margin-top: 12px;">AI와 연습하기</a>
+  </div>
+
   <script src="supabase-config.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
@@ -365,8 +371,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         return;
       }
 
-      function goDestinyWithParams() {
-        btnGameEntry.href = 'destiny.html?' + new URLSearchParams({
+      function getAiDestinyUrl() {
+        return 'destiny.html?' + new URLSearchParams({
           mySide: payload.mySide,
           model: payload.model,
           condition: payload.condition,
@@ -374,7 +380,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           oppSide: payload.oppSide,
           oppCondition: payload.oppCondition
         }).toString();
-        matchingSide.classList.add('complete');
+      }
+
+      function showRealMatchFail() {
+        var failEl = document.getElementById('realMatchFailMsg');
+        var aiBtn = document.getElementById('aiPracticeBtn');
+        if (failEl && aiBtn) {
+          aiBtn.href = getAiDestinyUrl();
+          document.querySelector('.page').classList.add('hidden');
+          failEl.classList.remove('hidden');
+        }
       }
 
       function goDestinyWithRoom(roomId) {
@@ -411,8 +426,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             cond: payload.condition
           }).select('id').single().then(function(res) {
             if (res.error) {
-              goDestinyWithParams();
-              setTimeout(function() { matchingSide.classList.add('complete'); }, MATCH_DURATION_MS);
+              showRealMatchFail();
               return;
             }
             var myWaitingId = res.data.id;
@@ -476,25 +490,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
             tryMatch();
             var poll = setInterval(tryMatch, 2000);
-            setTimeout(function() { clearInterval(poll); }, 60000);
+            setTimeout(function() {
+              clearInterval(poll);
+              if (!document.getElementById('realMatchFailMsg').classList.contains('hidden')) return;
+              if (document.querySelector('.page').classList.contains('hidden')) return;
+              showRealMatchFail();
+            }, 60000);
           }).catch(function() {
-            goDestinyWithParams();
-            setTimeout(function() { matchingSide.classList.add('complete'); }, MATCH_DURATION_MS);
+            showRealMatchFail();
           });
         } catch (e) {
-          goDestinyWithParams();
-          setTimeout(function() { matchingSide.classList.add('complete'); }, MATCH_DURATION_MS);
+          showRealMatchFail();
         }
       } else {
-        btnGameEntry.href = 'destiny.html?' + new URLSearchParams({
-          mySide: payload.mySide,
-          model: payload.model,
-          condition: payload.condition,
-          oppModel: payload.oppModel,
-          oppSide: payload.oppSide,
-          oppCondition: payload.oppCondition
-        }).toString();
-        setTimeout(function() { matchingSide.classList.add('complete'); }, MATCH_DURATION_MS);
+        showRealMatchFail();
       }
     })();
   </script>
