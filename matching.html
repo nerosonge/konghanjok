@@ -453,7 +453,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   goDestinyWithRoom(p.new.room_id);
                 }
               })
-              .subscribe();
+              .subscribe(function(status, err) { if (err) console.warn('[Realtime] 내 대기열 구독', status, err); });
 
             function tryMatch() {
               supabaseClient.from('waiting').select('id, user_id, condition').eq('queue_key', oppositeKey).is('room_id', null).limit(1).then(function(r) {
@@ -498,8 +498,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             }
 
             var channelOpp = supabaseClient.channel('waiting-opp-' + oppositeKey.replace(/[^a-zA-Z0-9_-]/g, '_'))
-              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'waiting', filter: 'queue_key=eq.' + oppositeKey }, tryMatch)
-              .subscribe();
+              .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'waiting', filter: 'queue_key=eq."' + oppositeKey + '"' }, tryMatch)
+              .subscribe(function(status, err) { if (err) console.warn('[Realtime] 반대 대기열 구독', status, err); });
 
             tryMatch();
             var poll = setInterval(tryMatch, 2000);
